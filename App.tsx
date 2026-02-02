@@ -1,0 +1,387 @@
+import React, { useEffect, useState } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
+import { supabase } from './lib/supabaseClient';
+import { 
+  Customer, Appointment, BusinessSettings, ServiceItem, 
+  Expense, PlanType, PortfolioItem, Review, AppointmentStatus, ServiceBay 
+} from './types';
+import { Sidebar } from './components/Sidebar';
+import { Dashboard } from './components/Dashboard';
+import { Schedule } from './components/Schedule';
+import { CRM } from './components/CRM';
+import { FinancialModule } from './components/FinancialModule';
+import { Settings } from './components/Settings';
+import { MarketingModule } from './components/MarketingModule';
+import { WelcomeScreen } from './components/WelcomeScreen';
+import { AuthScreen } from './components/AuthScreen';
+import { PublicBooking } from './components/PublicBooking';
+import { SubscriptionGuard } from './components/SubscriptionGuard';
+import { Loader2, Menu, AlertCircle, RefreshCw, LogOut, Sparkles } from 'lucide-react';
+import { useEntitySaver } from './hooks/useEntitySaver';
+import { generateConfirmationMessage } from './services/whatsappService';
+import { CookieConsent } from './components/CookieConsent';
+import { generateUUID } from './lib/utils';
+import { WhatsAppModal } from './components/WhatsAppModal';
+
+function AppContent() {
+  const [session, setSession] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [initializing, setInitializing] = useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  // Data
+  const [settings, setSettings] = useState<BusinessSettings | null>(null);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [services, setServices] = useState<ServiceItem[]>([]);
+  const [serviceBays, setServiceBays] = useState<ServiceBay[]>([]);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [portfolio, setPortfolio] = useState<PortfolioItem[]>([]);
+  const [reviews, setReviews] = useState<Review[]>([]);
+
+  // Public Mode
+  const [publicSlug, setPublicSlug] = useState<string | null>(null);
+  const [previewMode, setPreviewMode] = useState(false);
+
+  // Auth Flow
+  const [showAuth, setShowAuth] = useState(false);
+  const [authRole, setAuthRole] = useState<'ADMIN' | 'CLIENT'>('ADMIN');
+  const [preFillAuth, setPreFillAuth] = useState<{name: string, phone: string} | null>(null);
+
+  // WhatsApp Modal State
+  const [whatsappModal, setWhatsappModal] = useState<{isOpen: boolean, phone: string, message: string, customerName: string} | null>(null);
+
+  const { save } = useEntitySaver();
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const studioSlug = params.get('studio');
+    if (studioSlug) {
+      setPublicSlug(studioSlug);
+    }
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      if (session?.user?.user_metadata?.role === 'ADMIN' && location.pathname === '/') {
+          navigate('/dashboard');
+      }
+      if (!studioSlug && !session) setLoading(false);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      if (session && session?.user?.user_metadata?.role === 'ADMIN' && location.pathname === '/') {
+          navigate('/dashboard');
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [navigate]);
+
+  useEffect(() => {
+    if (session?.user?.user_metadata?.role === 'ADMIN' && location.pathname === '/') {
+      navigate('/dashboard');
+    }
+  }, [session, location.pathname, navigate]);
+
+  const normalizeSettings = (biz: any): BusinessSettings => {
+      let operating_days = biz.operating_days || biz.configs?.operating_days || [];
+      const blocked_dates = biz.blocked_dates || biz.configs?.blocked_dates || [];
+
+      if (operating_days.length === 0) {
+          operating_days = [
+              { dayOfWeek: 0, isOpen: false, openTime: '00:00', closeTime: '00:00' },
+              { dayOfWeek: 1, isOpen: true, openTime: '08:00', closeTime: '18:00' },
+              { dayOfWeek: 2, isOpen: true, openTime: '08:00', closeTime: '18:00' },
+              { dayOfWeek: 3, isOpen: true, openTime: '08:00', closeTime: '18:00' },
+              { dayOfWeek: 4, isOpen: true, openTime: '08:00', closeTime: '18:00' },
+              { dayOfWeek: 5, isOpen: true, openTime: '08:00', closeTime: '18:00' },
+              { dayOfWeek: 6, isOpen: true, openTime: '09:00', closeTime: '14:00' }
+          ];
+      }
+
+      return { ...biz, operating_days, blocked_dates };
+  };
+
+  const fetchData = async (silent = false) => {
+    try {
+        if (!silent) setLoading(true);
+        let businessId = '';
+        let currentBiz: any = null;
+        const userRole = session?.user?.user_metadata?.role;
+
+        if (publicSlug) {
+            const { data: biz } = await supabase.from('business_settings').select('*').eq('slug', publicSlug).maybeSingle();
+            if (biz) {
+                currentBiz = biz;
+                setSettings(normalizeSettings(biz));
+                businessId = biz.id;
+            }
+        } 
+        
+        if (!businessId && session?.user) {
+            if (userRole === 'CLIENT') {
+                const { data: lastApt } = await supabase.from('appointments').select('business_id').eq('user_id', session.user.id).order('created_at', { ascending: false }).limit(1).maybeSingle();
+                if (lastApt) {
+                     const { data: biz } = await supabase.from('business_settings').select('*').eq('id', lastApt.business_id).maybeSingle();
+                     if (biz) {
+                        currentBiz = biz;
+                        setSettings(normalizeSettings(biz));
+                        businessId = biz.id;
+                     }
+                }
+            } else {
+                const { data: biz } = await supabase.from('business_settings').select('*').eq('user_id', session.user.id).maybeSingle();
+                if (biz) {
+                    currentBiz = biz;
+                    setSettings(normalizeSettings(biz));
+                    businessId = biz.id;
+                }
+            }
+        }
+
+        if (!businessId && previewMode) {
+             const { data: firstBiz } = await supabase.from('business_settings').select('*').limit(1).maybeSingle();
+             if (firstBiz) {
+                 currentBiz = firstBiz;
+                 setSettings(normalizeSettings(firstBiz));
+                 businessId = firstBiz.id;
+             }
+        }
+
+        if (!businessId) {
+            if (!silent) setLoading(false);
+            return;
+        }
+
+        const results = await Promise.allSettled([
+            supabase.from('appointments').select('*').eq('business_id', businessId),
+            supabase.from('services').select('*').eq('business_id', businessId).eq('is_active', true),
+            supabase.from('service_bays').select('*').eq('business_id', businessId).order('name', { ascending: true }),
+            supabase.from('expenses').select('*').eq('business_id', businessId),
+            supabase.from('portfolio_items').select('*').eq('business_id', businessId).order('created_at', { ascending: false }),
+            supabase.from('reviews').select('*').eq('business_id', businessId).order('created_at', { ascending: false }),
+            supabase.from('customers').select('*').eq('business_id', businessId)
+        ]);
+
+        const [apts, servs, bays, exps, port, revs, custRes] = results.map(r => r.status === 'fulfilled' ? r.value : { data: null });
+
+        if (apts.data) setAppointments(apts.data.map((a: any) => ({ ...a, serviceType: a.service_type, durationMinutes: a.duration_minutes, customerId: a.customer_id, vehicleId: a.vehicle_id, boxId: a.box_id })));
+        if (servs.data) {
+            const serviceImages = currentBiz?.configs?.service_images || {};
+            setServices((servs.data as any[]).map(s => ({ ...s, image_url: serviceImages[s.id] || s.image_url })));
+        }
+        if (bays.data) setServiceBays(bays.data as ServiceBay[]);
+        if (exps.data) setExpenses(exps.data as Expense[]);
+        if (port.data) setPortfolio(port.data.map((p: any) => ({ ...p, imageUrl: p.image_url, date: p.created_at })));
+        if (revs.data) setReviews(revs.data.map((r: any) => ({ ...r, customerName: r.customer_name, date: r.created_at })));
+
+        if (custRes.data && custRes.data.length > 0) {
+            const customerIds = custRes.data.map((c: any) => c.id);
+            const { data: vehiclesData } = await supabase.from('vehicles').select('*').in('customer_id', customerIds);
+            setCustomers(custRes.data.map((c: any) => ({
+                id: c.id, name: c.name, phone: c.phone || '', email: c.email || '', 
+                totalSpent: (apts.data || []).filter((a: any) => a.customer_id === c.id && a.status === 'FINALIZADO').reduce((sum: number, a: any) => sum + (Number(a.price) || 0), 0),
+                lastVisit: c.last_visit, xpPoints: c.xp_points, washes: c.washes_count,
+                vehicles: vehiclesData?.filter((v: any) => v.customer_id === c.id).map((v: any) => ({
+                    id: v.id, brand: v.brand || '', model: v.model || '', plate: v.plate || '', color: v.color || '', type: v.type || 'CARRO'
+                })) || []
+            })));
+        }
+
+    } catch (error) {
+        console.error("Data Load Error:", error);
+    } finally {
+        if (!silent) setLoading(false);
+    }
+  };
+
+  const handleInitializeHangar = async () => {
+      if (!session?.user) return;
+      setInitializing(true);
+      try {
+          const fullName = session.user.user_metadata?.full_name || 'Meu Hangar';
+          const phone = session.user.user_metadata?.phone || '';
+          const slug = fullName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') + '-' + Math.floor(Math.random() * 1000);
+          const { error: bizError } = await supabase.from('business_settings').insert({
+              user_id: session.user.id, business_name: fullName, slug: slug, whatsapp: phone,
+              plan_type: PlanType.ELITE, subscription_status: 'TRIAL', trial_start_date: new Date().toISOString(),
+              box_capacity: 5, patio_capacity: 15, configs: { operating_days: [] }
+          });
+          if (bizError) throw bizError;
+          await fetchData();
+          navigate('/dashboard');
+      } catch (err: any) {
+          alert("Erro ao inicializar hangar: " + err.message);
+      } finally {
+          setInitializing(false);
+      }
+  };
+
+  useEffect(() => {
+      if (session || publicSlug || previewMode) fetchData();
+  }, [session, publicSlug, previewMode]);
+
+  const handleUpdateStatus = async (id: string, status: AppointmentStatus) => {
+      const currentApt = appointments.find(a => a.id === id);
+      const { success } = await save('appointments', { id, status });
+      if (success) {
+          setAppointments(prev => prev.map(a => a.id === id ? { ...a, status } : a));
+          if (status === AppointmentStatus.CONFIRMADO && currentApt) {
+              const customer = customers.find(c => c.id === currentApt.customerId);
+              if (customer && customer.phone) {
+                  const vehicle = (customer.vehicles || []).find(v => v.id === currentApt.vehicleId) || (customer.vehicles?.[0] || null);
+                  const msg = generateConfirmationMessage(settings?.business_name || 'CarbonCar', customer.name, currentApt.date, currentApt.time, vehicle?.model || 'Veículo', vehicle?.plate || '', currentApt.serviceType);
+                  setWhatsappModal({ isOpen: true, phone: customer.phone, message: msg, customerName: customer.name });
+              }
+          }
+          if (status === AppointmentStatus.FINALIZADO) fetchData(true);
+      }
+  };
+
+  const handleAddAppointment = async (apt: Appointment, newCustomer?: Customer, silent = false) => {
+      if (!settings) return alert("Hangar não identificado.");
+      let finalCustomerId = apt.customerId;
+      let finalVehicleId = apt.vehicleId;
+      if (newCustomer) {
+          const { data: existingCust } = await supabase.from('customers').select('id, vehicles(id, plate)').eq('business_id', settings.id).eq('phone', newCustomer.phone).maybeSingle();
+          if (existingCust) {
+              finalCustomerId = existingCust.id;
+              const vehicleData = newCustomer.vehicles[0];
+              const existingVeh = existingCust.vehicles.find((v: any) => v.plate === vehicleData.plate.toUpperCase());
+              if (existingVeh) finalVehicleId = existingVeh.id;
+              else {
+                  const newVehId = generateUUID();
+                  const { error: vErr } = await supabase.from('vehicles').insert({ id: newVehId, customer_id: finalCustomerId, brand: vehicleData.brand, model: vehicleData.model, plate: vehicleData.plate.toUpperCase(), type: 'CARRO' });
+                  if (!vErr) finalVehicleId = newVehId;
+              }
+          } else {
+              const newCustId = generateUUID();
+              const { error: cErr } = await supabase.from('customers').insert({ id: newCustId, business_id: settings.id, user_id: session?.user?.id || null, name: newCustomer.name, phone: newCustomer.phone, email: newCustomer.email });
+              if (cErr) return;
+              finalCustomerId = newCustId;
+              const vehicleData = newCustomer.vehicles[0];
+              const newVehId = generateUUID();
+              const { error: vErr } = await supabase.from('vehicles').insert({ id: newVehId, customer_id: newCustId, brand: vehicleData.brand, model: vehicleData.model, plate: vehicleData.plate.toUpperCase(), type: 'CARRO' });
+              if (!vErr) finalVehicleId = newVehId;
+          }
+      }
+      
+      const { error } = await supabase.from('appointments').insert({
+          business_id: settings.id, user_id: session?.user?.id || null, customer_id: finalCustomerId, vehicle_id: finalVehicleId,
+          service_id: apt.serviceId, service_type: apt.serviceType, date: apt.date, time: apt.time,
+          duration_minutes: apt.durationMinutes, price: apt.price, status: AppointmentStatus.NOVO,
+          observation: apt.observation, box_id: apt.boxId || null
+      });
+
+      if (error) alert("Erro ao agendar: " + error.message);
+      else fetchData(silent);
+  };
+
+  if (loading) return <div className="h-screen bg-black flex items-center justify-center"><Loader2 className="animate-spin text-red-600" size={32} /></div>;
+
+  // PUBLIC BOOKING FLOW
+  if ((publicSlug || session?.user?.user_metadata?.role === 'CLIENT' || previewMode) && settings && !location.pathname.startsWith('/dashboard')) {
+      return (
+        <>
+            <PublicBooking 
+                currentUser={session?.user} businessSettings={settings} services={services} existingAppointments={appointments} 
+                portfolio={portfolio} reviews={reviews} onBookingComplete={async (apt, newCustomer) => { await handleAddAppointment(apt, newCustomer, true); return true; }}
+                onExit={() => { supabase.auth.signOut(); setPublicSlug(null); setPreviewMode(false); navigate('/'); }}
+                onLoginRequest={() => { setAuthRole('CLIENT'); setShowAuth(true); }}
+                onRegisterRequest={(data) => { setAuthRole('CLIENT'); setPreFillAuth(data); setShowAuth(true); }}
+            />
+            {showAuth && !session && (
+                <div className="fixed inset-0 z-[250] bg-black animate-in fade-in duration-300">
+                    <AuthScreen role="CLIENT" onLogin={(newSession) => { setShowAuth(false); setSession(newSession); fetchData(); }} onBack={() => setShowAuth(false)} preFillData={preFillAuth} />
+                </div>
+            )}
+        </>
+      );
+  }
+
+  // AUTH FLOW
+  if (!session && !publicSlug) {
+      if (showAuth) return <AuthScreen role={authRole} onLogin={(newSession) => { setShowAuth(false); setSession(newSession); if (newSession?.user?.user_metadata?.role === 'ADMIN') navigate('/dashboard'); fetchData(); }} onBack={() => setShowAuth(false)} preFillData={preFillAuth} />;
+      return <WelcomeScreen onSelectFlow={(role) => { setAuthRole(role); setShowAuth(true); }} onPreviewClient={() => setPreviewMode(true)} />;
+  }
+
+  // NO SETTINGS FLOW
+  if (!settings && session) {
+      const isAdmin = session?.user?.user_metadata?.role === 'ADMIN';
+      return (
+          <div className="h-screen bg-[#050505] flex flex-col items-center justify-center p-8 text-center font-sans">
+              <div className="max-w-lg space-y-8">
+                  <div className="w-20 h-20 rounded-[2.5rem] bg-zinc-900 border border-white/10 flex items-center justify-center mx-auto shadow-2xl">
+                      <AlertCircle className="text-red-500" size={36} />
+                  </div>
+                  <div>
+                      <h2 className="text-3xl font-black text-white uppercase tracking-tighter mb-4">{isAdmin ? 'Hangar não Inicializado' : 'Acesso Restrito'}</h2>
+                      <p className="text-zinc-500 text-sm font-medium leading-relaxed">
+                          {isAdmin ? 'Detectamos que sua conta de administrador foi criada, mas o espaço operacional ainda não foi configurado.' : 'Não conseguimos localizar configurações para este perfil.'}
+                      </p>
+                  </div>
+                  <div className="grid gap-3 w-full">
+                      {isAdmin && (
+                          <button onClick={handleInitializeHangar} disabled={initializing} className="w-full py-5 bg-red-600 hover:bg-red-500 text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] flex items-center justify-center gap-3 shadow-glow-red">
+                              {initializing ? <Loader2 className="animate-spin" size={16} /> : <Sparkles size={16} />} Inicializar meu Hangar Agora
+                          </button>
+                      )}
+                      <button onClick={() => fetchData()} className="w-full py-5 bg-white text-black rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] flex items-center justify-center gap-3 shadow-glow"><RefreshCw size={16} /> Tentar Re-Sincronização</button>
+                      <button onClick={() => supabase.auth.signOut()} className="w-full py-5 bg-zinc-900 border border-white/5 text-zinc-400 hover:text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] flex items-center justify-center gap-3"><LogOut size={16} /> Encerrar Sessão</button>
+                  </div>
+              </div>
+          </div>
+      );
+  }
+
+  // MAIN ADMIN DASHBOARD
+  if (settings) {
+    return (
+        <div className="flex w-full overflow-hidden bg-black font-sans" style={{ zoom: '0.9', height: '111.12vh' }}>
+            <Sidebar 
+                currentPlan={settings.plan_type || PlanType.START} 
+                isOpen={sidebarOpen} 
+                onClose={() => setSidebarOpen(false)} 
+                onUpgrade={() => navigate('/dashboard/configuracoes')} 
+                onLogout={() => { supabase.auth.signOut(); navigate('/'); }} 
+                logoUrl={settings.profile_image_url || undefined} 
+                businessName={settings.business_name} 
+                slug={settings.slug} 
+            />
+            <div className="flex-1 flex flex-col min-w-0 h-full relative">
+                <button onClick={() => setSidebarOpen(true)} className="md:hidden absolute top-4 left-4 z-50 p-2 bg-zinc-900 rounded-lg text-white"><Menu size={20} /></button>
+                <SubscriptionGuard businessId={settings.id || ''} onPlanChange={fetchData}>
+                    <main className="flex-1 h-full overflow-y-auto bg-black custom-scrollbar pb-10">
+                        <Routes>
+                            <Route path="/dashboard" element={<Dashboard currentPlan={settings.plan_type || PlanType.START} appointments={appointments} customers={customers} onUpgrade={() => navigate('/dashboard/configuracoes')} setActiveTab={(tab) => navigate(`/dashboard/${tab === 'schedule' ? 'agendamentos' : tab}`)} businessSettings={settings} onUpdateStatus={handleUpdateStatus} onCancelAppointment={(id) => handleUpdateStatus(id, AppointmentStatus.CANCELADO)} onDeleteAppointment={async (id) => { await supabase.from('appointments').delete().eq('id', id); fetchData(true); }} onRefresh={async () => await fetchData(true)} />} />
+                            <Route path="/dashboard/agendamentos" element={<Schedule appointments={appointments} customers={customers} onAddAppointment={handleAddAppointment} onUpdateStatus={handleUpdateStatus} onCancelAppointment={(id) => handleUpdateStatus(id, AppointmentStatus.CANCELADO)} onDeleteAppointment={async (id) => { await supabase.from('appointments').delete().eq('id', id); fetchData(true); }} settings={settings} services={services} serviceBays={serviceBays} onUpgrade={() => navigate('/dashboard/configuracoes')} currentPlan={settings.plan_type || PlanType.START} onRefresh={async () => await fetchData(true)} />} />
+                            <Route path="/dashboard/clientes" element={<CRM customers={customers} onAddCustomer={async (c) => { const { data: { session: s } } = await supabase.auth.getSession(); if (!s?.user || !settings?.id) return; const { vehicles, ...customerData } = c; const { data: newCust, error } = await supabase.from('customers').insert({ business_id: settings.id, user_id: s.user.id, ...customerData }).select().single(); if(!error && newCust && vehicles?.length > 0) { await supabase.from('vehicles').insert({ customer_id: newCust.id, brand: vehicles[0].brand, model: vehicles[0].model, plate: vehicles[0].plate, type: 'CARRO' }); } if(!error) fetchData(true); }} onDeleteCustomer={async (id) => { await supabase.from('customers').delete().eq('id', id); fetchData(true); }} businessSettings={settings} onUpdateSettings={async (s) => { const { success } = await save('business_settings', s); if (success) fetchData(true); }} />} />
+                            <Route path="/dashboard/reputacao" element={<MarketingModule portfolio={portfolio} onAddPortfolioItem={(item) => setPortfolio(prev => [item, ...prev])} onDeletePortfolioItem={async (id) => { await supabase.from('portfolio_items').delete().eq('id', id); fetchData(true); }} reviews={reviews} onReplyReview={async (id, r) => { await supabase.from('reviews').update({ reply: r }).eq('id', id); fetchData(true); }} currentPlan={settings.plan_type || PlanType.START} onUpgrade={() => navigate('/dashboard/configuracoes')} businessId={settings.id} />} />
+                            <Route path="/dashboard/financeiro" element={<FinancialModule appointments={appointments} expenses={expenses} onAddExpense={async (e) => { await save('expenses', { ...e, business_id: settings.id }); fetchData(true); }} onDeleteExpense={async (id) => { await supabase.from('expenses').delete().eq('id', id); fetchData(true); }} currentPlan={settings.plan_type || PlanType.START} onUpgrade={() => navigate('/dashboard/configuracoes')} businessId={settings.id} />} />
+                            <Route path="/dashboard/configuracoes" element={<Settings currentPlan={settings.plan_type || PlanType.START} onUpgrade={async (plan) => { await save('business_settings', { id: settings.id, plan_type: plan }); fetchData(true); }} settings={settings} onUpdateSettings={(s) => setSettings(s)} services={services} onAddService={() => fetchData(true)} onDeleteService={async (id) => { await supabase.from('services').delete().eq('id', id); fetchData(true); }} />} />
+                            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+                        </Routes>
+                    </main>
+                </SubscriptionGuard>
+            </div>
+            <CookieConsent />
+            {whatsappModal && <WhatsAppModal isOpen={whatsappModal.isOpen} onClose={() => setWhatsappModal(null)} phone={whatsappModal.phone} message={whatsappModal.message} customerName={whatsappModal.customerName} />}
+        </div>
+    );
+  }
+
+  return null;
+}
+
+function App() {
+    return (
+        <BrowserRouter>
+            <AppContent />
+        </BrowserRouter>
+    );
+}
+
+export default App;
