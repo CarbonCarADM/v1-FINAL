@@ -123,14 +123,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <NavLink
                   key={item.id}
                   to={locked ? '#' : item.path}
-                  onClick={(e) => {
+                  onClick={(e: React.MouseEvent) => {
                     if (locked) {
                         e.preventDefault();
                     } else {
                         onClose();
                     }
                   }}
-                  className={({ isActive }) => `
+                  className={({ isActive }: { isActive: boolean }) => `
                     w-full flex items-center justify-between px-4 py-4 rounded-2xl text-xs font-bold transition-all duration-300 group relative overflow-hidden
                     ${isActive && !locked
                       ? 'text-white bg-white/5 border border-white/5' 
@@ -138,7 +138,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     ${locked ? 'opacity-40 cursor-not-allowed hover:bg-transparent' : ''}
                   `}
                 >
-                  {({ isActive }) => (
+                  {({ isActive }: { isActive: boolean }) => (
                       <>
                         <div className="flex items-center gap-4 relative z-10">
                             <item.icon size={18} className={(isActive && !locked) ? 'text-red-500' : 'text-zinc-600 group-hover:text-white transition-colors'} />
