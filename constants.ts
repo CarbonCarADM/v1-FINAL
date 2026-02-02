@@ -45,8 +45,9 @@ export const PLAN_FEATURES = {
     hasFinance: true,
     hasWhatsapp: true,
     highlight: true,
-    stripeLinkMonthly: 'https://buy.stripe.com/test_8x2cMXdEJ1nv7QTd4odZ600',
-    stripeLinkAnnual: 'https://buy.stripe.com/test_7sYbIT0RXd6d7QTc0kdZ601'
+    // ATENÇÃO: Estes links aparecem tanto nas Configurações quanto na Tela de Bloqueio (Trial Expirado)
+    stripeLinkMonthly: 'https://buy.stripe.com/cNi6oz7aJdLB8po1dhgnK00', 
+    stripeLinkAnnual: 'https://buy.stripe.com/3cIbIT2UtfTJ7lk5txgnK04'
   },
   [PlanType.ELITE]: {
     label: 'Carbon Elite',
@@ -68,7 +69,8 @@ export const PLAN_FEATURES = {
     hasFinance: true,
     hasWhatsapp: true,
     highlight: false,
-    stripeLinkMonthly: 'https://buy.stripe.com/test_8x24gr8kp1nvfjle8sdZ602',
-    stripeLinkAnnual: 'https://buy.stripe.com/test_dRmdR1dEJeah5ILggAdZ603'
+    // ATENÇÃO: Estes links aparecem tanto nas Configurações quanto na Tela de Bloqueio (Trial Expirado)
+    stripeLinkMonthly: 'https://buy.stripe.com/14A00bcv3dLBdJIaNRgnK02',
+    stripeLinkAnnual: 'https://buy.stripe.com/cNieV57aJcHxaxwg8bgnK03'
   }
 };

@@ -63,7 +63,8 @@ export const Settings: React.FC<SettingsProps> = ({
     }); 
   }, [settings]);
 
-  const bookingUrl = `${window.location.origin}${window.location.pathname}?studio=${settings.slug}`;
+  // Fix: Use root path '/' instead of window.location.pathname to ensure the link goes to the public booking page, not the dashboard
+  const bookingUrl = `${window.location.origin}/?studio=${settings.slug}`;
   const isLimitReached = currentPlan === PlanType.START && services.length >= 5;
 
   const handleSaveSettings = async () => {

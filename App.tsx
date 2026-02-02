@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from './lib/supabaseClient';
@@ -304,6 +305,24 @@ function AppContent() {
 
   // AUTH FLOW
   if (!session && !publicSlug) {
+      if (location.pathname === '/login') {
+         return <AuthScreen 
+            role="ADMIN" 
+            initialAuthMode="LOGIN" 
+            onLogin={(newSession) => { setSession(newSession); navigate('/dashboard'); fetchData(); }} 
+            onBack={() => navigate('/')} 
+         />;
+      }
+
+      if (location.pathname === '/trialsingup') {
+         return <AuthScreen 
+            role="ADMIN" 
+            initialAuthMode="REGISTER" 
+            onLogin={(newSession) => { setSession(newSession); navigate('/dashboard'); fetchData(); }} 
+            onBack={() => navigate('/')} 
+         />;
+      }
+
       if (showAuth) return <AuthScreen role={authRole} onLogin={(newSession) => { setShowAuth(false); setSession(newSession); if (newSession?.user?.user_metadata?.role === 'ADMIN') navigate('/dashboard'); fetchData(); }} onBack={() => setShowAuth(false)} preFillData={preFillAuth} />;
       return <WelcomeScreen onSelectFlow={(role) => { setAuthRole(role); setShowAuth(true); }} onPreviewClient={() => setPreviewMode(true)} />;
   }

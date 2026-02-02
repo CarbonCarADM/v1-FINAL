@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { LogIn, UserPlus, ArrowLeft, RefreshCw, Fingerprint, Mail, Phone, User, Key, ShieldCheck, HelpCircle, CheckCircle2, ArrowRight } from 'lucide-react';
 import { cn, formatPhone } from '../lib/utils';
@@ -7,13 +8,14 @@ import { LegalModal, LegalDocType } from './LegalModal';
 
 interface AuthScreenProps {
   role: 'CLIENT' | 'ADMIN';
+  initialAuthMode?: 'LOGIN' | 'REGISTER';
   onLogin: (session: any) => void;
   onBack: () => void;
   preFillData?: { name: string, phone: string } | null;
 }
 
-export const AuthScreen: React.FC<AuthScreenProps> = ({ role, onLogin, onBack, preFillData }) => {
-  const [authMode, setAuthMode] = useState<'LOGIN' | 'REGISTER' | 'RECOVER'>('LOGIN');
+export const AuthScreen: React.FC<AuthScreenProps> = ({ role, initialAuthMode = 'LOGIN', onLogin, onBack, preFillData }) => {
+  const [authMode, setAuthMode] = useState<'LOGIN' | 'REGISTER' | 'RECOVER'>(initialAuthMode);
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
