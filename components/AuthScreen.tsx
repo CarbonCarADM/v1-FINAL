@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { LogIn, UserPlus, ArrowLeft, RefreshCw, Fingerprint, Mail, Phone, User, Key, ShieldCheck, HelpCircle, CheckCircle2, ArrowRight } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { cn, formatPhone } from '../lib/utils';
 import { supabase } from '../lib/supabaseClient';
 import { PlanType } from '../types';
@@ -15,6 +16,7 @@ interface AuthScreenProps {
 }
 
 export const AuthScreen: React.FC<AuthScreenProps> = ({ role, initialAuthMode = 'LOGIN', onLogin, onBack, preFillData }) => {
+  const navigate = useNavigate();
   const [authMode, setAuthMode] = useState<'LOGIN' | 'REGISTER' | 'RECOVER'>(initialAuthMode);
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState('');
@@ -27,6 +29,10 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ role, initialAuthMode = 
   // Legal Modal State
   const [showLegal, setShowLegal] = useState(false);
   const [legalType, setLegalType] = useState<LegalDocType>('TERMS');
+
+  useEffect(() => {
+      setAuthMode(initialAuthMode);
+  }, [initialAuthMode]);
 
   // Auto-fill logic from props (Conversion Flow)
   useEffect(() => {
@@ -142,6 +148,15 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ role, initialAuthMode = 
       setShowLegal(true);
   };
 
+  const handleModeSwitch = (mode: 'LOGIN' | 'REGISTER') => {
+      if (role === 'ADMIN') {
+          if (mode === 'LOGIN') navigate('/login');
+          else navigate('/trialsingup');
+      } else {
+          setAuthMode(mode);
+      }
+  };
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-[#020202] relative overflow-hidden font-sans selection:bg-red-500/30 selection:text-red-200">
       <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1493238792015-1a419bc32836?q=80&w=2070&auto=format&fit=crop')] bg-cover bg-center opacity-20 blur-sm scale-105 contrast-125" />
@@ -165,8 +180,8 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ role, initialAuthMode = 
 
              {authMode !== 'RECOVER' && (
                 <div className="bg-black/40 border border-white/5 p-1 rounded-xl flex relative mb-6 backdrop-blur-md">
-                    <button onClick={() => setAuthMode('LOGIN')} className={cn("flex-1 py-3 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all duration-300 flex items-center justify-center gap-2", authMode === 'LOGIN' ? "bg-zinc-800 text-white shadow-lg border border-white/5" : "text-zinc-500 hover:text-zinc-300")}><LogIn size={10} /> Entrar</button>
-                    <button onClick={() => setAuthMode('REGISTER')} className={cn("flex-1 py-3 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all duration-300 flex items-center justify-center gap-2", authMode === 'REGISTER' ? "bg-zinc-800 text-white shadow-lg border border-white/5" : "text-zinc-500 hover:text-zinc-300")}><UserPlus size={10} /> Criar Conta</button>
+                    <button onClick={() => handleModeSwitch('LOGIN')} className={cn("flex-1 py-3 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all duration-300 flex items-center justify-center gap-2", authMode === 'LOGIN' ? "bg-zinc-800 text-white shadow-lg border border-white/5" : "text-zinc-500 hover:text-zinc-300")}><LogIn size={10} /> Entrar</button>
+                    <button onClick={() => handleModeSwitch('REGISTER')} className={cn("flex-1 py-3 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all duration-300 flex items-center justify-center gap-2", authMode === 'REGISTER' ? "bg-zinc-800 text-white shadow-lg border border-white/5" : "text-zinc-500 hover:text-zinc-300")}><UserPlus size={10} /> Criar Conta</button>
                 </div>
              )}
 

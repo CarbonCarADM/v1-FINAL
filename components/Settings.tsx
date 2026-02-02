@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Save, LayoutGrid, Clock, ListPlus, Gem, Check, Building2, Image as ImageIcon, RefreshCw, Upload, Store, Loader2, CalendarX, Plus, Trash2, Zap, Gauge, MapPin, Copy, ExternalLink, AlertTriangle, Calendar as CalendarIcon, Instagram, Boxes, X, Move, ZoomIn, Car } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
 import { PlanType, BusinessSettings, ServiceItem, OperatingRule, BlockedDate } from '../types';
 import { PLAN_FEATURES } from '../constants';
 import { cn } from '../lib/utils';
@@ -22,6 +23,7 @@ const DAYS_OF_WEEK = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta
 export const Settings: React.FC<SettingsProps> = ({ 
     currentPlan, onUpgrade, settings, onUpdateSettings, services = [], onAddService, onDeleteService
 }) => {
+  const location = useLocation();
   const [activeTab, setActiveTab] = useState<'operacional' | 'servicos' | 'geral' | 'assinatura'>('geral');
   const [savingSettings, setSavingSettings] = useState(false);
   const { save, loading: savingEntity } = useEntitySaver();
@@ -62,6 +64,15 @@ export const Settings: React.FC<SettingsProps> = ({
         }
     }); 
   }, [settings]);
+
+  // Effect to handle URL query params for tab switching
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const tabParam = params.get('tab');
+    if (tabParam && ['geral', 'operacional', 'servicos', 'assinatura'].includes(tabParam)) {
+        setActiveTab(tabParam as any);
+    }
+  }, [location.search]);
 
   // Fix: Use root path '/' instead of window.location.pathname to ensure the link goes to the public booking page, not the dashboard
   const bookingUrl = `${window.location.origin}/?studio=${settings.slug}`;

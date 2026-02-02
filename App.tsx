@@ -23,6 +23,7 @@ import { generateConfirmationMessage } from './services/whatsappService';
 import { CookieConsent } from './components/CookieConsent';
 import { generateUUID } from './lib/utils';
 import { WhatsAppModal } from './components/WhatsAppModal';
+import { TrialBanner } from './components/TrialBanner';
 
 function AppContent() {
   const [session, setSession] = useState<any>(null);
@@ -324,7 +325,18 @@ function AppContent() {
       }
 
       if (showAuth) return <AuthScreen role={authRole} onLogin={(newSession) => { setShowAuth(false); setSession(newSession); if (newSession?.user?.user_metadata?.role === 'ADMIN') navigate('/dashboard'); fetchData(); }} onBack={() => setShowAuth(false)} preFillData={preFillAuth} />;
-      return <WelcomeScreen onSelectFlow={(role) => { setAuthRole(role); setShowAuth(true); }} onPreviewClient={() => setPreviewMode(true)} />;
+      return <WelcomeScreen 
+        onSelectFlow={(role, mode) => { 
+            if (role === 'ADMIN') {
+                if (mode === 'REGISTER') navigate('/trialsingup');
+                else navigate('/login');
+            } else {
+                setAuthRole(role); 
+                setShowAuth(true); 
+            }
+        }} 
+        onPreviewClient={() => setPreviewMode(true)} 
+      />;
   }
 
   // NO SETTINGS FLOW
@@ -372,6 +384,14 @@ function AppContent() {
             />
             <div className="flex-1 flex flex-col min-w-0 h-full relative">
                 <button onClick={() => setSidebarOpen(true)} className="md:hidden absolute top-4 left-4 z-50 p-2 bg-zinc-900 rounded-lg text-white"><Menu size={20} /></button>
+                
+                {/* Trial Banner rendered in the main content area */}
+                <TrialBanner 
+                    createdAt={settings.trial_start_date || settings.created_at} 
+                    isSubscribed={settings.subscription_status === 'ACTIVE'}
+                    planType={settings.plan_type || 'START'}
+                />
+
                 <SubscriptionGuard businessId={settings.id || ''} onPlanChange={fetchData}>
                     <main className="flex-1 h-full overflow-y-auto bg-black custom-scrollbar pb-10">
                         <Routes>
