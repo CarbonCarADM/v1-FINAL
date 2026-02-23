@@ -388,7 +388,8 @@ export const Settings: React.FC<SettingsProps> = ({
                      {(Object.keys(PLAN_FEATURES) as PlanType[]).map(plan => {
                          const f = PLAN_FEATURES[plan];
                          const isActive = currentPlan === plan;
-                         const checkoutLink = billingCycle === 'MONTHLY' ? f.stripeLinkMonthly : f.stripeLinkAnnual;
+                         const rawLink = billingCycle === 'MONTHLY' ? f.stripeLinkMonthly : f.stripeLinkAnnual;
+                         const checkoutLink = rawLink ? `${rawLink}?client_reference_id=${settings.id}` : null;
                          return (
                              <div key={plan} className={cn("p-8 rounded-[2.5rem] border flex flex-col transition-all relative overflow-hidden", isActive ? "bg-zinc-900 border-red-600/50" : "bg-[#09090b] border-white/5")}>
                                  {isActive && <div className="absolute top-4 right-4"><Check className="text-red-600" /></div>}

@@ -68,15 +68,61 @@ async function startServer() {
             console.log(`PaymentIntent was successful: ${paymentIntent.id}`);
             break;
 
-          case "customer.subscription.created":
+          case "checkout.session.completed":
+            const session = eventData as Stripe.Checkout.Session;
+            const businessId = session.client_reference_id;
+            
+            if (businessId) {
+              console.log(`Checkout completed for business: ${businessId}`);
+              
+              const planType = session.metadata?.plan_type || 'PRO';
+              const customerId = session.customer as string;
+              const subscriptionId = session.subscription as string;
+              
+              const { error: updateError } = await supabase
+                .from("business_settings")
+                .update({ 
+                  plan_type: planType,
+                  subscription_status: 'ACTIVE',
+                  stripe_customer_id: customerId,
+                  stripe_subscription_id: subscriptionId,
+                  updated_at: new Date().toISOString()
+                })
+                .eq("id", businessId);
+
+              if (updateError) {
+                console.error(`Error updating business ${businessId}:`, updateError);
+              }
+            }
+            break;
+
           case "customer.subscription.updated":
-            const subscription = eventData as Stripe.Subscription;
-            console.log(`Subscription event: ${eventType} for ${subscription.id}`);
+            const updatedSub = eventData as Stripe.Subscription;
+            console.log(`Subscription updated: ${updatedSub.id} (status: ${updatedSub.status})`);
+            
+            const newStatus = updatedSub.status === 'active' ? 'ACTIVE' : 'EXPIRED';
+            
+            await supabase
+              .from("business_settings")
+              .update({ 
+                subscription_status: newStatus,
+                updated_at: new Date().toISOString()
+              })
+              .eq("stripe_subscription_id", updatedSub.id);
             break;
 
           case "customer.subscription.deleted":
             const deletedSub = eventData as Stripe.Subscription;
             console.log(`Subscription deleted: ${deletedSub.id}`);
+            
+            await supabase
+              .from("business_settings")
+              .update({ 
+                subscription_status: 'EXPIRED',
+                plan_type: 'START',
+                updated_at: new Date().toISOString()
+              })
+              .eq("stripe_subscription_id", deletedSub.id);
             break;
 
           default:
