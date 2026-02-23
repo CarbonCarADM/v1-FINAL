@@ -71,6 +71,6 @@ export const PLAN_FEATURES = {
     highlight: false,
     // ATENÇÃO: Estes links aparecem tanto nas Configurações quanto na Tela de Bloqueio (Trial Expirado)
     stripeLinkMonthly: 'https://buy.stripe.com/14A00bcv3dLBdJIaNRgnK02',
-    stripeLinkAnnual: 'https://buy.stripe.com/cNieV57aJcHxaxwg8bgnK03'
+    stripeLinkAnnual: 'https://buy.stripe.com/28EaEPgLjdLB6hg6xBgnK07'
   }
 };

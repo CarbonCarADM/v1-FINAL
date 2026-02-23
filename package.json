@@ -1,20 +1,22 @@
-
 {
   "name": "carboncar-os",
   "private": true,
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "tsx server.ts",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "lint": "tsc --noEmit"
   },
   "dependencies": {
     "@radix-ui/react-avatar": "^1.1.1",
     "@radix-ui/react-slot": "^1.1.0",
     "@supabase/supabase-js": "^2.45.1",
+    "body-parser": "^2.2.2",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
+    "express": "^5.2.1",
     "framer-motion": "^11.5.4",
     "jspdf": "^2.5.1",
     "jspdf-autotable": "^3.8.2",
@@ -23,16 +25,20 @@
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.22.3",
     "recharts": "^2.12.7",
+    "stripe": "^20.3.1",
     "tailwind-merge": "^2.5.2",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "@types/body-parser": "^1.19.6",
+    "@types/express": "^5.0.6",
     "@types/node": "^22.5.4",
     "@types/react": "^18.3.5",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.1",
     "autoprefixer": "^10.4.20",
     "postcss": "^8.4.45",
+    "tsx": "^4.21.0",
     "typescript": "^5.5.3",
     "vite": "^5.4.1"
   }
